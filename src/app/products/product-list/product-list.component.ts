@@ -2,7 +2,7 @@ import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
 import { Router } from '@angular/router';
 import { FormControl } from '@angular/forms';
 import { Observable, EMPTY, combineLatest, Subscription } from 'rxjs';
-import { tap, catchError, startWith, count, flatMap, map, debounceTime, filter } from 'rxjs/operators';
+import { tap, catchError, startWith, count, flatMap, map, debounceTime, filter, finalize } from 'rxjs/operators';
 
 import { Product } from '../product.interface';
 import { ProductService } from '../product.service';
@@ -17,7 +17,11 @@ export class ProductListComponent implements OnInit {
 
   title: string = 'Products';
   selectedProduct: Product;
+  
   products$: Observable<Product[]>;
+  mostExpensiveProduct$: Observable<Product>;
+  productsNumber$: Observable<number>;
+
   errorMessage;
 
   // Pagination
@@ -25,6 +29,14 @@ export class ProductListComponent implements OnInit {
   start = 0;
   end = this.pageSize;
   currentPage = 1;
+  productsToLoad = this.pageSize * 2;
+
+  loadMore() {
+    let take: number = this.productsToLoad;
+    let skip: number = this.end;
+
+    this.productService.initProducts(skip, take);
+  }
 
   previousPage() {
     this.start -= this.pageSize;
@@ -61,11 +73,25 @@ export class ProductListComponent implements OnInit {
 
     this.products$ = this
                       .productService
-                      .products$;
+                      .products$
+                      .pipe(
+                        filter(products => products.length > 0)
+                      );
+
+    this.productsNumber$ = this
+                            .products$
+                            .pipe(
+                              map(products => products.length),                              
+                              startWith(0)
+                            );
+
+    this.mostExpensiveProduct$ = this
+                                  .productService
+                                  .mostExpensiveProduct$;
   }
 
   refresh() {
-    this.productService.initProducts();
+    this.productService.clearList();
     this.router.navigateByUrl('/products'); // Self route navigation
   }  
 }
